@@ -14,11 +14,22 @@ pub fn main() !void {
         const conn = try server.accept();
         defer conn.stream.close();
 
-        while (true) {
-            var buf: [1024]u8 = undefined;
-            const n = try conn.stream.read(&buf);
-            if (n == 0) break;
-            _ = try conn.stream.write(buf[0..n]);
-        }
+        var buf: [1024]u8 = undefined;
+        const n = conn.stream.read(&buf) catch |err| {
+            std.debug.print("read error: {}\n", .{err});
+            continue;
+        };
+        if (n == 0) continue;
+
+        const response =
+            "HTTP/1.1 200 OK\r\n" ++
+            "Content-Type: text/plain\r\n" ++
+            "Content-Length: 11\r\n" ++
+            "\r\n" ++
+            "hello world";
+        _ = conn.stream.write(response) catch |err| {
+            std.debug.print("write error: {}\n", .{err});
+            continue;
+        };
     }
 }
