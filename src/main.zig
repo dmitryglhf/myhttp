@@ -1,27 +1,24 @@
 const std = @import("std");
-const myhttp = @import("myhttp");
+const net = std.net;
 
 pub fn main() !void {
-    // Prints to stderr, ignoring potential errors.
-    std.debug.print("All your {s} are belong to us.\n", .{"codebase"});
-    try myhttp.bufferedPrint();
-}
+    // listen on 0.0.0.0:8080
+    const address = net.Address.parseIp("0.0.0.0", 8080) catch unreachable;
+    var server = try address.listen(.{
+        .reuse_address = true,
+    });
+    defer server.deinit();
 
-test "simple test" {
-    const gpa = std.testing.allocator;
-    var list: std.ArrayList(i32) = .empty;
-    defer list.deinit(gpa); // Try commenting this out and see if zig detects the memory leak!
-    try list.append(gpa, 42);
-    try std.testing.expectEqual(@as(i32, 42), list.pop());
-}
+    std.debug.print("listening on :8080\n", .{});
 
-test "fuzz example" {
-    const Context = struct {
-        fn testOne(context: @This(), input: []const u8) anyerror!void {
-            _ = context;
-            // Try passing `--fuzz` to `zig build test` and see if it manages to fail this test case!
-            try std.testing.expect(!std.mem.eql(u8, "canyoufindme", input));
-        }
-    };
-    try std.testing.fuzz(Context{}, Context.testOne, .{});
+    // accept single connection
+    const conn = try server.accept();
+    defer conn.stream.close();
+
+    // read
+    var buf: [1024]u8 = undefined;
+    const n = try conn.stream.read(&buf);
+
+    // write again
+    _ = try conn.stream.write(buf[0..n]);
 }
